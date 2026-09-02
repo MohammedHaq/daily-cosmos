@@ -2,6 +2,7 @@ import { motion } from 'motion/react'
 import NearEarthPanel from './components/NearEarthPanel'
 import EarthView from './components/EarthView'
 import SolarSystem from './components/SolarSystem'
+import WeatherMap from './components/WeatherMap'
 
 const today = new Date().toLocaleDateString('en-US', {
   weekday: 'long',
@@ -81,6 +82,8 @@ function App() {
           </motion.div>
         </div>
       </main>
+
+      <WeatherMap />
     </div>
   )
 }

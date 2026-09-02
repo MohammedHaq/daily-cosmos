@@ -216,3 +216,36 @@ export function earthRotationDeg(date) {
   const d = julianDate(date) - 2451545.0
   return normalizeDeg(280.46061837 + 360.98564736629 * d)
 }
+
+// The subsolar point: the (lat, lon) on Earth where the Sun is directly
+// overhead right now — i.e. the center of the daylight hemisphere. Standard
+// low-precision solar-position formula (solar mean longitude/anomaly ->
+// ecliptic longitude -> declination + right ascension), combined with the
+// same GMST used by earthRotationDeg to get the sun's Greenwich hour angle.
+// Good to a fraction of a degree — plenty for a visual day/night terminator.
+export function subsolarPoint(date) {
+  const n = julianDate(date) - 2451545.0
+
+  const meanLong = normalizeDeg(280.46 + 0.9856474 * n)
+  const meanAnomalyDeg = normalizeDeg(357.528 + 0.9856003 * n)
+  const meanAnomaly = meanAnomalyDeg * DEG2RAD
+
+  const eclipticLongDeg = normalizeDeg(
+    meanLong + 1.915 * Math.sin(meanAnomaly) + 0.02 * Math.sin(2 * meanAnomaly),
+  )
+  const eclipticLong = eclipticLongDeg * DEG2RAD
+  const obliquity = (23.439 - 0.0000004 * n) * DEG2RAD
+
+  const lat = Math.asin(Math.sin(obliquity) * Math.sin(eclipticLong)) / DEG2RAD
+
+  const raDeg = normalizeDeg(
+    Math.atan2(Math.cos(obliquity) * Math.sin(eclipticLong), Math.cos(eclipticLong)) / DEG2RAD,
+  )
+
+  const hourAngle = normalizeDeg(earthRotationDeg(date) - raDeg)
+  let lon = -hourAngle
+  if (lon > 180) lon -= 360
+  if (lon < -180) lon += 360
+
+  return { lat, lon }
+}
