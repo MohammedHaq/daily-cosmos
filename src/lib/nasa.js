@@ -45,7 +45,7 @@ export async function getEpic(date) {
   return Array.isArray(images) ? images : []
 }
 
-export async function getDonki(type) {
-  const data = await fetchJson('/api/donki', { type })
+export async function getDonki(type, { startDate, endDate } = {}) {
+  const data = await fetchJson('/api/donki', { type, start_date: startDate, end_date: endDate })
   return Array.isArray(data) ? data : []
 }

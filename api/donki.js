@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     // DONKI has been observed to be intermittently slow/unreliable — bound the
     // wait so a hung upstream request doesn't hang this function indefinitely.
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10_000)
+    const timeout = setTimeout(() => controller.abort(), 15_000)
     const nasaRes = await fetch(url, { signal: controller.signal })
     clearTimeout(timeout)
 
@@ -47,7 +47,10 @@ export default async function handler(req, res) {
       return
     }
 
-    setCache(res, 60 * 30)
+    // Historical flare/CME/storm data barely changes except the last day or
+    // two — a longer cache means most visitors within this window never hit
+    // DONKI live at all (it's known to be intermittently unreliable).
+    setCache(res, 60 * 60 * 2)
     res.status(200).json(data)
   } catch {
     res.status(502).json({ error: 'Failed to reach NASA DONKI API' })
