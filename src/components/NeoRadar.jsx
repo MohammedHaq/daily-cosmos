@@ -88,7 +88,12 @@ function SweepWedge() {
 
   return (
     <motion.g
-      style={{ transformOrigin: `${CENTER}px ${CENTER}px` }}
+      // transformBox: 'view-box' is required here — without it, browsers anchor
+      // transformOrigin to this shape's own bounding box (fill-box), not the SVG's
+      // coordinate system. Since the wedge's bbox isn't centered on Earth (it's a
+      // triangle from center out to one edge), that made it spin around its own
+      // off-center bbox midpoint instead of around Earth.
+      style={{ transformOrigin: `${CENTER}px ${CENTER}px`, transformBox: 'view-box' }}
       animate={{ rotate: 360 }}
       transition={{ repeat: Infinity, ease: 'linear', duration: 7 }}
     >
