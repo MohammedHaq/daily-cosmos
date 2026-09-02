@@ -11,7 +11,7 @@ import {
   cometPosition,
   cometOrbitPoints,
 } from '../lib/orbitalMechanics'
-import { PLANET_FACTS, formatDayLength, formatYearLength } from '../lib/planetFacts'
+import { PLANET_FACTS, SUN_FACTS, formatDayLength, formatYearLength } from '../lib/planetFacts'
 
 const DEG2RAD = Math.PI / 180
 const SIMULATED_DAYS_PER_SECOND = 2 // ~1 real second = 2 simulated days: Mercury laps in ~44s, Earth in ~3min
@@ -122,20 +122,47 @@ function createEarthGraticuleTexture() {
   return texture
 }
 
-function Sun() {
+const SUN_SIZE = 0.9
+
+function Sun({ hoveredKey, onHover, onSelect }) {
   const ref = useRef(null)
+  const isHovered = hoveredKey === 'sun'
+
   useFrame(({ clock }) => {
     if (!ref.current) return
     const pulse = 1 + Math.sin(clock.elapsedTime * 0.8) * 0.03
     ref.current.scale.setScalar(pulse)
   })
+
   return (
     <group>
       <pointLight color="#fff3df" intensity={80} distance={0} decay={0.6} />
-      <mesh ref={ref}>
-        <sphereGeometry args={[0.9, 32, 32]} />
+      <mesh
+        ref={ref}
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          onHover('sun')
+          document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation()
+          onHover(null)
+          document.body.style.cursor = 'auto'
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onSelect('sun')
+        }}
+      >
+        <sphereGeometry args={[SUN_SIZE, 32, 32]} />
         <meshBasicMaterial color={SUN_COLOR} />
       </mesh>
+      {isHovered && (
+        <mesh>
+          <sphereGeometry args={[SUN_SIZE * 1.3, 24, 24]} />
+          <meshBasicMaterial color={SUN_COLOR} transparent opacity={0.2} />
+        </mesh>
+      )}
     </group>
   )
 }
@@ -359,8 +386,32 @@ function PlanetInfoPanel({ planetKey, now }) {
           No target selected
         </p>
         <p className="mt-2 font-(family-name:--font-body) text-sm text-(--fg-dim)">
-          Hover or tap a planet or comet for its telemetry.
+          Hover or tap the Sun, a planet, or a comet for its telemetry.
         </p>
+      </div>
+    )
+  }
+
+  if (planetKey === 'sun') {
+    return (
+      <div className="px-5 py-6">
+        <p
+          className="font-(family-name:--font-data) text-[10px] tracking-[0.25em] uppercase"
+          style={{ color: SUN_COLOR }}
+        >
+          Target locked · Star
+        </p>
+        <h3 className="mt-1 font-(family-name:--font-display) text-2xl font-semibold">The Sun</h3>
+        <p className="mt-2 font-(family-name:--font-body) text-sm text-(--fg-dim)">{SUN_FACTS.blurb}</p>
+        <div className="mt-4">
+          <StatRow label="Type" value={SUN_FACTS.type} />
+          <StatRow label="Surface temperature" value={`${SUN_FACTS.surfaceTempC.toLocaleString()}°C`} />
+          <StatRow label="Core temperature" value={`${SUN_FACTS.coreTempC.toLocaleString()}°C`} />
+          <StatRow label="Diameter" value={`${SUN_FACTS.diameterKm.toLocaleString()} km`} />
+          <StatRow label="Mass" value={`${SUN_FACTS.massEarths.toLocaleString()}× Earth`} />
+          <StatRow label="Age" value={`${SUN_FACTS.ageBillionYears} billion years`} />
+          <StatRow label="Rotation (equator)" value={`~${SUN_FACTS.rotationDaysAtEquator} Earth days`} />
+        </div>
       </div>
     )
   }
@@ -450,7 +501,7 @@ function SolarSystem() {
           published orbital elements — animated forward from there so the motion is visible.
           Distances and sizes are compressed for legibility, not to true relative scale (comets
           get their own, more dramatic compression given how eccentric their orbits are). Drag to
-          rotate, scroll to zoom, hover or tap a planet or comet for its telemetry.
+          rotate, scroll to zoom, hover or tap the Sun, a planet, or a comet for its telemetry.
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-0 overflow-hidden rounded-sm border border-(--fg-dim)/40 lg:grid-cols-[1fr_280px]">
@@ -460,7 +511,7 @@ function SolarSystem() {
               onPointerMissed={() => setSelectedKey(null)}
             >
               <ambientLight intensity={0.12} />
-              <Sun />
+              <Sun hoveredKey={hoveredKey} onHover={setHoveredKey} onSelect={setSelectedKey} />
               <Stars radius={60} depth={30} count={2000} factor={2} fade speed={0.5} />
               <OrbitRings now={now} />
               <CometOrbitRings />

@@ -79,6 +79,20 @@ export const PLANET_FACTS = {
   },
 }
 
+// The Sun isn't a planet, so it gets its own shape rather than being forced
+// into PLANET_FACTS's per-planet fields — same NASA source (nssdc.gsfc.nasa.gov).
+export const SUN_FACTS = {
+  type: 'G-type main-sequence star (G2V)',
+  surfaceTempC: 5500,
+  coreTempC: 15_000_000,
+  diameterKm: 1_391_000,
+  massEarths: 333_000,
+  ageBillionYears: 4.6,
+  rotationDaysAtEquator: 27,
+  blurb:
+    'Over 99.8% of the solar system’s mass — everything else, including all eight planets, adds up to a rounding error by comparison.',
+}
+
 export function formatYearLength(days) {
   if (days < 500) return `${days.toFixed(1)} Earth days`
   return `${(days / 365.25).toFixed(1)} Earth years`
