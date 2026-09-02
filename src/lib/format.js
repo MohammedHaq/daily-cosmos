@@ -91,3 +91,27 @@ export function cameraFullName(camera) {
   const code = camera?.name?.toUpperCase()
   return CAMERA_NAMES[code] || camera?.full_name || camera?.name || 'Unknown Camera'
 }
+
+// Solar flare classes (A < B < C < M < X) are logarithmic — each letter is
+// 10x the X-ray flux of the one before, with a 1-9.9(+) magnitude within it.
+// Returns a continuous score (roughly 0-5+) so flares can be plotted on a
+// single scale instead of needing 5 separate class buckets.
+const FLARE_CLASS_ORDER = { A: 0, B: 1, C: 2, M: 3, X: 4 }
+
+export function flareSeverity(classType) {
+  const match = classType?.match(/^([ABCMX])([\d.]+)/i)
+  if (!match) return 0
+  const base = FLARE_CLASS_ORDER[match[1].toUpperCase()] ?? 0
+  const magnitude = Math.max(0.1, parseFloat(match[2]) || 1)
+  return base + Math.log10(magnitude)
+}
+
+// NOAA's geomagnetic storm (G) scale, keyed off the planetary Kp index.
+export function stormLevel(kp) {
+  if (kp >= 9) return 'G5 · Extreme'
+  if (kp >= 8) return 'G4 · Severe'
+  if (kp >= 7) return 'G3 · Strong'
+  if (kp >= 6) return 'G2 · Moderate'
+  if (kp >= 5) return 'G1 · Minor'
+  return 'Quiet'
+}

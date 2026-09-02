@@ -2,7 +2,15 @@ import { useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Line, Stars } from '@react-three/drei'
 import * as THREE from 'three'
-import { PLANETS, heliocentricPosition, orbitEllipsePoints, earthRotationDeg } from '../lib/orbitalMechanics'
+import {
+  PLANETS,
+  COMETS,
+  heliocentricPosition,
+  orbitEllipsePoints,
+  earthRotationDeg,
+  cometPosition,
+  cometOrbitPoints,
+} from '../lib/orbitalMechanics'
 import { PLANET_FACTS, formatDayLength, formatYearLength } from '../lib/planetFacts'
 
 const DEG2RAD = Math.PI / 180
@@ -41,6 +49,36 @@ function compressedRadius(trueA) {
 // AU (ecliptic x, y, z) -> three.js scene units (y-up).
 function toSceneVector(x, y, z, scale) {
   return [x * scale, z * scale, -y * scale]
+}
+
+// Comets are far more eccentric than any planet (e up to ~0.97), so scaling
+// them by semi-major-axis like compressedRadius() would push their aphelion
+// (~2x the compressed "a") well past the camera's framing. Instead each comet
+// gets its own scale derived from its true APHELION distance — the visually
+// relevant extreme — log-mapped into a range that only slightly exceeds
+// Neptune's ring, keeping every comet's full ellipse in frame while still
+// reading as dramatically larger/faster than the planets' near-circular orbits.
+const COMET_MIN_APHELION_AU = Math.min(...COMETS.map((c) => c.a * (1 + c.e)))
+const COMET_MAX_APHELION_AU = Math.max(...COMETS.map((c) => c.a * (1 + c.e)))
+const COMET_MIN_SCENE_RADIUS = 6
+const COMET_MAX_SCENE_RADIUS = 19
+
+function cometSceneScale(comet) {
+  const aphelion = comet.a * (1 + comet.e)
+  const t =
+    COMET_MAX_APHELION_AU > COMET_MIN_APHELION_AU
+      ? (Math.log(aphelion) - Math.log(COMET_MIN_APHELION_AU)) /
+        (Math.log(COMET_MAX_APHELION_AU) - Math.log(COMET_MIN_APHELION_AU))
+      : 0.5
+  const sceneAphelion = COMET_MIN_SCENE_RADIUS + t * (COMET_MAX_SCENE_RADIUS - COMET_MIN_SCENE_RADIUS)
+  return sceneAphelion / aphelion
+}
+
+function nextPerihelion(comet, after) {
+  const periodMs = comet.periodYears * 365.25 * 86_400_000
+  let t = new Date(comet.perihelionDate).getTime()
+  while (t < after.getTime()) t += periodMs
+  return new Date(t)
 }
 
 // A schematic lat/long graticule globe texture (no photographic imagery) —
@@ -136,6 +174,94 @@ function OrbitRings({ now }) {
   )
 }
 
+function CometOrbitRings() {
+  const rings = useMemo(
+    () =>
+      COMETS.map((comet) => {
+        const points = cometOrbitPoints(comet, 160)
+        const scale = cometSceneScale(comet)
+        return {
+          key: comet.key,
+          points: points.map((p) => toSceneVector(p.x, p.y, p.z, scale)),
+        }
+      }),
+    [],
+  )
+
+  return (
+    <>
+      {rings.map((ring) => (
+        <Line
+          key={ring.key}
+          points={ring.points}
+          color="#bfe4e8"
+          transparent
+          opacity={0.3}
+          dashed
+          dashSize={0.1}
+          gapSize={0.16}
+        />
+      ))}
+    </>
+  )
+}
+
+function Comets({ simTimeRef, hoveredKey, onHover, onSelect }) {
+  const groupRefs = useRef({})
+  const COMET_SIZE = 0.07
+
+  useFrame(() => {
+    const date = simTimeRef.current
+    for (const comet of COMETS) {
+      const { x, y, z } = cometPosition(comet, date)
+      const scale = cometSceneScale(comet)
+      const group = groupRefs.current[comet.key]
+      if (group) group.position.set(...toSceneVector(x, y, z, scale))
+    }
+  })
+
+  return (
+    <>
+      {COMETS.map((comet) => {
+        const isHovered = hoveredKey === comet.key
+        return (
+          <group key={comet.key} ref={(el) => (groupRefs.current[comet.key] = el)}>
+            <mesh
+              onPointerOver={(e) => {
+                e.stopPropagation()
+                onHover(comet.key)
+                document.body.style.cursor = 'pointer'
+              }}
+              onPointerOut={(e) => {
+                e.stopPropagation()
+                onHover(null)
+                document.body.style.cursor = 'auto'
+              }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onSelect(comet.key)
+              }}
+            >
+              <sphereGeometry args={[COMET_SIZE, 16, 16]} />
+              <meshStandardMaterial
+                color={comet.color}
+                emissive={comet.color}
+                emissiveIntensity={isHovered ? 0.9 : 0.6}
+              />
+            </mesh>
+            {isHovered && (
+              <mesh>
+                <sphereGeometry args={[COMET_SIZE * 2.2, 16, 16]} />
+                <meshBasicMaterial color={comet.color} transparent opacity={0.2} />
+              </mesh>
+            )}
+          </group>
+        )
+      })}
+    </>
+  )
+}
+
 function Planets({ simTimeRef, hoveredKey, onHover, onSelect }) {
   const groupRefs = useRef({})
   const spinRefs = useRef({})
@@ -225,7 +351,7 @@ function StatRow({ label, value }) {
   )
 }
 
-function PlanetInfoPanel({ planetKey }) {
+function PlanetInfoPanel({ planetKey, now }) {
   if (!planetKey) {
     return (
       <div className="flex h-full flex-col justify-center px-5 py-6 text-center">
@@ -233,8 +359,39 @@ function PlanetInfoPanel({ planetKey }) {
           No target selected
         </p>
         <p className="mt-2 font-(family-name:--font-body) text-sm text-(--fg-dim)">
-          Hover or tap a planet to read its telemetry.
+          Hover or tap a planet or comet for its telemetry.
         </p>
+      </div>
+    )
+  }
+
+  const comet = COMETS.find((c) => c.key === planetKey)
+  if (comet) {
+    const perihelionAU = comet.a * (1 - comet.e)
+    const aphelionAU = comet.a * (1 + comet.e)
+    return (
+      <div className="px-5 py-6">
+        <p
+          className="font-(family-name:--font-data) text-[10px] tracking-[0.25em] uppercase"
+          style={{ color: comet.color }}
+        >
+          Target locked · Comet
+        </p>
+        <h3 className="mt-1 font-(family-name:--font-display) text-2xl font-semibold">
+          {comet.name}
+        </h3>
+        <p className="mt-2 font-(family-name:--font-body) text-sm text-(--fg-dim)">
+          Orbital elements from JPL's Small-Body Database. Highly eccentric orbit shown
+          compressed for framing — its real swing from near the Sun to far past the outer
+          planets is even more dramatic than it looks here.
+        </p>
+        <div className="mt-4">
+          <StatRow label="Orbital period" value={`${comet.periodYears} years`} />
+          <StatRow label="Closest approach" value={`${perihelionAU.toFixed(2)} AU`} />
+          <StatRow label="Farthest distance" value={`${aphelionAU.toFixed(1)} AU`} />
+          <StatRow label="Inclination" value={`${comet.i.toFixed(1)}°${comet.i > 90 ? ' (retrograde)' : ''}`} />
+          <StatRow label="Next perihelion" value={nextPerihelion(comet, now).getUTCFullYear()} />
+        </div>
       </div>
     )
   }
@@ -289,10 +446,11 @@ function SolarSystem() {
           The Solar System, Right Now
         </h2>
         <p className="mt-2 max-w-2xl font-(family-name:--font-body) text-sm text-(--fg-dim)">
-          Real planetary positions for this exact moment, computed from JPL's published orbital
-          elements — animated forward from there so the motion is visible. Distances and planet
-          sizes are compressed for legibility, not to true relative scale. Drag to rotate, scroll
-          to zoom, hover or tap a planet for its telemetry.
+          Real planetary and cometary positions for this exact moment, computed from JPL's
+          published orbital elements — animated forward from there so the motion is visible.
+          Distances and sizes are compressed for legibility, not to true relative scale (comets
+          get their own, more dramatic compression given how eccentric their orbits are). Drag to
+          rotate, scroll to zoom, hover or tap a planet or comet for its telemetry.
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-0 overflow-hidden rounded-sm border border-(--fg-dim)/40 lg:grid-cols-[1fr_280px]">
@@ -305,7 +463,14 @@ function SolarSystem() {
               <Sun />
               <Stars radius={60} depth={30} count={2000} factor={2} fade speed={0.5} />
               <OrbitRings now={now} />
+              <CometOrbitRings />
               <Planets
+                simTimeRef={simTimeRef}
+                hoveredKey={hoveredKey}
+                onHover={setHoveredKey}
+                onSelect={setSelectedKey}
+              />
+              <Comets
                 simTimeRef={simTimeRef}
                 hoveredKey={hoveredKey}
                 onHover={setHoveredKey}
@@ -322,7 +487,7 @@ function SolarSystem() {
             </Canvas>
           </div>
           <div className="border-t border-(--fg-dim)/40 bg-(--bg-panel) lg:border-t-0 lg:border-l">
-            <PlanetInfoPanel planetKey={activeKey} />
+            <PlanetInfoPanel planetKey={activeKey} now={now} />
           </div>
         </div>
       </div>

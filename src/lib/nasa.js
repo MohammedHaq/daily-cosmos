@@ -44,3 +44,8 @@ export async function getEpic(date) {
   const images = await fetchJson('/api/epic', { date })
   return Array.isArray(images) ? images : []
 }
+
+export async function getDonki(type) {
+  const data = await fetchJson('/api/donki', { type })
+  return Array.isArray(data) ? data : []
+}

@@ -3,6 +3,7 @@ import NearEarthPanel from './components/NearEarthPanel'
 import EarthView from './components/EarthView'
 import SolarSystem from './components/SolarSystem'
 import WeatherMap from './components/WeatherMap'
+import SpaceWeather from './components/SpaceWeather'
 
 const today = new Date().toLocaleDateString('en-US', {
   weekday: 'long',
@@ -84,6 +85,7 @@ function App() {
       </main>
 
       <WeatherMap />
+      <SpaceWeather />
     </div>
   )
 }

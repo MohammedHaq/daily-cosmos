@@ -114,6 +114,52 @@ export const PLANETS = [
   },
 ]
 
+// Real orbital elements fetched live from JPL's Small-Body Database API
+// (ssd-api.jpl.nasa.gov/sbdb.api, public, keyless) — a, e, i, node (Ω) and
+// argument of perihelion (ω) directly, plus perihelionDate (Tp) instead of a
+// mean-longitude table: comets are propagated from that one epoch via simple
+// two-body mean motion (see cometPosition), not the centuries-long linear-rate
+// fit used for planets, since comet elements are only trustworthy near their
+// fit epoch. Good enough for a visual over this scene's session-length timescales.
+export const COMETS = [
+  {
+    key: 'halley',
+    name: '1P/Halley',
+    color: '#bfe4e8',
+    a: 17.9286,
+    e: 0.9679,
+    i: 162.191,
+    Omega: 59.099,
+    omega: 112.241,
+    perihelionDate: '1986-02-08T11:22:00Z',
+    periodYears: 75.9,
+  },
+  {
+    key: 'encke',
+    name: '2P/Encke',
+    color: '#bfe4e8',
+    a: 2.2197,
+    e: 0.8475,
+    i: 11.387,
+    Omega: 334.15,
+    omega: 187.174,
+    perihelionDate: '2023-10-22T07:09:00Z',
+    periodYears: 3.3,
+  },
+  {
+    key: 'swift-tuttle',
+    name: '109P/Swift-Tuttle',
+    color: '#bfe4e8',
+    a: 26.0921,
+    e: 0.9632,
+    i: 113.454,
+    Omega: 139.381,
+    omega: 152.982,
+    perihelionDate: '1992-12-11T23:59:41Z',
+    periodYears: 133.3,
+  },
+]
+
 const DEG2RAD = Math.PI / 180
 
 function normalizeDeg(deg) {
@@ -202,6 +248,47 @@ export function heliocentricPosition(planet, date) {
 // Orientation is fixed at `date` (precession is far too slow to matter visually).
 export function orbitEllipsePoints(planet, date, segments = 128) {
   const elements = elementsAt(planet, date)
+  const points = []
+  for (let i = 0; i <= segments; i++) {
+    const E = (i / segments) * Math.PI * 2
+    points.push(positionFromAnomaly(elements, E))
+  }
+  return points
+}
+
+// Resolved orbital elements for a comet, in the same shape positionFromAnomaly
+// expects — unlike planets, i/Omega/omega don't change over the timescales
+// this scene runs at, so they're used as-fetched rather than rate-adjusted.
+function cometElements(comet) {
+  return {
+    a: comet.a,
+    e: comet.e,
+    I: comet.i * DEG2RAD,
+    omega: comet.omega * DEG2RAD,
+    Omega: comet.Omega * DEG2RAD,
+  }
+}
+
+// Comet position via two-body mean motion from its perihelion epoch (Standard
+// Gaussian gravitational constant k=0.01720209895 rad/day -> ~0.9856076686 deg/day
+// at a=1 AU, scaled by a^-1.5). Not a multi-body integration — real comets drift
+// from this over many orbits (outgassing, planetary perturbations), but for a
+// visual over a browsing session the drift is imperceptible.
+export function cometPosition(comet, date) {
+  const elements = cometElements(comet)
+  const n = 0.9856076686 / Math.pow(comet.a, 1.5)
+  const daysSincePerihelion = julianDate(date) - julianDate(new Date(comet.perihelionDate))
+
+  let M = normalizeDeg(n * daysSincePerihelion)
+  if (M > 180) M -= 360
+  const E = solveKepler(M * DEG2RAD, comet.e)
+
+  return { ...positionFromAnomaly(elements, E), a: comet.a }
+}
+
+// Points tracing the comet's full orbit ellipse in AU, for the orbit ring.
+export function cometOrbitPoints(comet, segments = 128) {
+  const elements = cometElements(comet)
   const points = []
   for (let i = 0; i <= segments; i++) {
     const E = (i / segments) * Math.PI * 2
