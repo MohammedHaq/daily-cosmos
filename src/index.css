@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* Fraunces — wonky high-contrast display serif, masthead & headlines
+   Newsreader — reading serif, body copy / APOD explanation
+   Martian Mono — telemetry mono, data readouts (distances, sols, timestamps) */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=Martian+Mono:wght@400..800&display=swap");
+
+@theme {
+  --font-display: "Fraunces", ui-serif, serif;
+  --font-body: "Newsreader", ui-serif, serif;
+  --font-data: "Martian Mono", ui-monospace, monospace;
+
+  --color-paper: #f2eee4;
+  --color-paper-dim: #e6e0d1;
+  --color-ink: #171512;
+  --color-ink-dim: #4a463e;
+  --color-nasa-red: #fc3d21;
+  --color-nasa-blue: #0b3d91;
+  --color-grid-line: #8ca3c7;
+
+  --color-night: #0a1220;
+  --color-night-panel: #0e1a2e;
+  --color-bone: #ede7d9;
+  --color-bone-dim: #a9a394;
+}
+
+:root {
+  color-scheme: light;
+  --bg: var(--color-paper);
+  --bg-panel: var(--color-paper-dim);
+  --fg: var(--color-ink);
+  --fg-dim: var(--color-ink-dim);
+  --accent-red: var(--color-nasa-red);
+  --accent-blue: var(--color-nasa-blue);
+  --grid: var(--color-grid-line);
+  --grid-opacity: 0.14;
+  --grid-blend: multiply;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: var(--color-night);
+  --bg-panel: var(--color-night-panel);
+  --fg: var(--color-bone);
+  --fg-dim: var(--color-bone-dim);
+  --accent-red: #ff5b3d;
+  --accent-blue: #6f9bff;
+  --grid: #2a3d5e;
+  --grid-opacity: 0.45;
+  --grid-blend: screen;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: var(--color-night);
+    --bg-panel: var(--color-night-panel);
+    --fg: var(--color-bone);
+    --fg-dim: var(--color-bone-dim);
+    --accent-red: #ff5b3d;
+    --accent-blue: #6f9bff;
+    --grid: #2a3d5e;
+    --grid-opacity: 0.45;
+    --grid-blend: screen;
+  }
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  position: relative;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--grid-opacity);
+  mix-blend-mode: var(--grid-blend);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
