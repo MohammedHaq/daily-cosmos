@@ -86,6 +86,12 @@ function App() {
 
       <WeatherMap />
       <SpaceWeather />
+
+      <footer className="px-6 py-8 text-center sm:px-10">
+        <p className="font-(family-name:--font-data) text-[10px] tracking-[0.2em] text-(--fg-dim) uppercase">
+          This website is dedicated to Gooby
+        </p>
+      </footer>
     </div>
   )
 }
